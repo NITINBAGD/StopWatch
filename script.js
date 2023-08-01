@@ -1,9 +1,11 @@
 // Array to store all the stopwatch data
-let hours = new Array(6).fill(0);
-let minutes = new Array(6).fill(0);
-let seconds = new Array(6).fill(0);
-let counts = new Array(6).fill(0);
-let timerIntervals = new Array(6).fill(null);
+let hours = new Array(3).fill(0);
+let minutes = new Array(3).fill(0);
+let seconds = new Array(3).fill(0);
+let counts = new Array(3).fill(0);
+
+// Create a Web Worker for the stopwatches
+let worker = new Worker('stopwatch-worker.js');
 
 // Function to save the stopwatch data to local storage
 function saveStopwatchData(stopwatchNumber) {
@@ -15,7 +17,7 @@ function saveStopwatchData(stopwatchNumber) {
 
 // Function to retrieve the stopwatch data from local storage on page load
 window.addEventListener('load', function () {
-  for (let i = 0; i < 6; i++) {
+  for (let i = 0; i < 3; i++) {
     hours[i] = parseInt(localStorage.getItem(`stopwatch${i}_hours`) || '0', 10);
     minutes[i] = parseInt(localStorage.getItem(`stopwatch${i}_minutes`) || '0', 10);
     seconds[i] = parseInt(localStorage.getItem(`stopwatch${i}_seconds`) || '0', 10);
@@ -56,27 +58,19 @@ function updateStopwatch(stopwatchNumber) {
   saveStopwatchData(stopwatchNumber);
 }
 
-// Function to start the stopwatch
+// Function to start the stopwatch using Web Workers
 function startStopwatch(stopwatchNumber) {
-  if (!timerIntervals[stopwatchNumber]) {
-    timerIntervals[stopwatchNumber] = setInterval(() => updateStopwatch(stopwatchNumber), 10);
-  }
+  worker.postMessage({ type: 'start', stopwatchNumber });
 }
 
-// Function to stop the stopwatch
+// Function to stop the stopwatch using Web Workers
 function stopStopwatch(stopwatchNumber) {
-  if (timerIntervals[stopwatchNumber]) {
-    clearInterval(timerIntervals[stopwatchNumber]);
-    timerIntervals[stopwatchNumber] = null;
-  }
+  worker.postMessage({ type: 'stop', stopwatchNumber });
 }
 
-// Function to reset the stopwatch
+// Function to reset the stopwatch using Web Workers
 function resetStopwatch(stopwatchNumber) {
-  if (timerIntervals[stopwatchNumber]) {
-    clearInterval(timerIntervals[stopwatchNumber]);
-    timerIntervals[stopwatchNumber] = null;
-  }
+  worker.postMessage({ type: 'reset', stopwatchNumber });
 
   hours[stopwatchNumber] = 0;
   minutes[stopwatchNumber] = 0;
@@ -85,6 +79,16 @@ function resetStopwatch(stopwatchNumber) {
   updateDisplay(stopwatchNumber);
   saveStopwatchData(stopwatchNumber);
 }
+
+// Listen to messages from the Web Worker
+worker.onmessage = function (event) {
+  const { type, stopwatchNumber } = event.data;
+  if (type === 'update') {
+    updateStopwatch(stopwatchNumber);
+  } else if (type === 'reset') {
+    saveStopwatchData(stopwatchNumber);
+  }
+};
 
 // Event listeners for each stopwatch
 const startButtons = document.querySelectorAll('.start-btn');
